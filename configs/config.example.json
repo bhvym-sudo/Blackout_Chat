@@ -1,0 +1,37 @@
+{
+  "version": "1.0.0",
+  "tor": {
+    "bootstrap_timeout": 120,
+    "connection_timeout": 30,
+    "use_bridges": false,
+    "bridges": []
+  },
+  "network": {
+    "service_port": 8080,
+    "connection_retry_interval": 10,
+    "ping_interval": 60,
+    "max_reconnect_attempts": 5
+  },
+  "ui": {
+    "theme": "auto",
+    "window_width": 1000,
+    "window_height": 700,
+    "message_font_size": 14,
+    "enable_notifications": true
+  },
+  "security": {
+    "verify_fingerprints": true,
+    "allow_unverified_messages": false,
+    "auto_accept_contacts": false
+  },
+  "database": {
+    "max_message_history": 10000,
+    "cleanup_old_messages": false,
+    "message_retention_days": 0
+  },
+  "logging": {
+    "level": "info",
+    "enable_file_logging": false,
+    "log_directory": ""
+  }
+}
