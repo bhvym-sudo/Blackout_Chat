@@ -11,6 +11,7 @@ torchat.exe
 data/
 .torchat/
 /tor
+/releases
 
 # IDE
 .vscode/
