@@ -84,7 +84,16 @@ func (db *DB) initSchema() error {
 	`
 
 	_, err := db.conn.Exec(schema)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Seed sample data if database is empty
+	if err := db.seedSampleData(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (db *DB) Close() error {
@@ -339,4 +348,123 @@ func (db *DB) DeleteMessage(id int64) error {
 func (db *DB) DeleteAllMessages(contactID int64) error {
 	_, err := db.conn.Exec("DELETE FROM messages WHERE contact_id = ?", contactID)
 	return err
+}
+
+func (db *DB) seedSampleData() error {
+	// Check if contacts already exist to avoid duplicating data
+	var count int
+	err := db.conn.QueryRow("SELECT COUNT(*) FROM contacts").Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	// If contacts already exist, don't seed
+	if count > 0 {
+		return nil
+	}
+
+	// Sample contacts with predefined data
+	sampleContacts := []struct {
+		name         string
+		onionAddress string
+		publicKey    string
+		fingerprint  string
+	}{
+		{
+			name:         "Alex Security",
+			onionAddress: "a1b2c3d4e5f6g7h8.onion",
+			publicKey:    "MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAKj34GkWqfVxQnq4Hy8N9z3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3CM=",
+			fingerprint:  "AAAA BBBB CCCC DDDD EEEE FFFF GGGG HHHH IIII JJJJ",
+		},
+		{
+			name:         "Jordan Privacy",
+			onionAddress: "i9j8k7l6m5n4o3p2.onion",
+			publicKey:    "MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBALk234GkWqfVxQnq4Hy8N9z3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3YCN=",
+			fingerprint:  "KKKK LLLL MMMM NNNN OOOO PPPP QQQQ RRRR SSSS TTTT",
+		},
+		{
+			name:         "Casey Encrypted",
+			onionAddress: "q1r2s3t4u5v6w7x8.onion",
+			publicKey:    "MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAMl934GkWqfVxQnq4Hy8N9z3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3Y3YCO=",
+			fingerprint:  "UUUU VVVV WWWW XXXX YYYY ZZZZ AAAA BBBB CCCC DDDD",
+		},
+	}
+
+	// Insert sample contacts and their messages
+	now := time.Now()
+	for _, contact := range sampleContacts {
+		c := &Contact{
+			Name:         contact.name,
+			OnionAddress: contact.onionAddress,
+			PublicKey:    contact.publicKey,
+			Fingerprint:  contact.fingerprint,
+			AddedAt:      now.AddDate(0, -1, 0), // 1 month ago
+			Verified:     true,
+		}
+
+		if err := db.AddContact(c); err != nil {
+			continue // Skip if contact already exists
+		}
+
+		// Add sample messages
+		messages := db.getSampleMessages(c.ID, contact.name, now)
+		for _, msg := range messages {
+			if err := db.AddMessage(&msg); err != nil {
+				continue
+			}
+		}
+	}
+
+	return nil
+}
+
+func (db *DB) getSampleMessages(contactID int64, contactName string, now time.Time) []Message {
+	messages := []Message{}
+
+	// Create sample conversation messages
+	sampleConversations := map[string][]struct {
+		content    string
+		isOutgoing bool
+		minutesAgo int
+	}{
+		"Alex Security": {
+			{content: "Hey, how's the security setup going?", isOutgoing: false, minutesAgo: 120},
+			{content: "Going great! Just finished the initial configuration.", isOutgoing: true, minutesAgo: 115},
+			{content: "Cool! Don't forget to verify the fingerprints", isOutgoing: false, minutesAgo: 110},
+			{content: "Already done. Everything looks good.", isOutgoing: true, minutesAgo: 105},
+			{content: "Perfect! Let me know if you need anything", isOutgoing: false, minutesAgo: 100},
+		},
+		"Jordan Privacy": {
+			{content: "Hi! Testing the connection here", isOutgoing: false, minutesAgo: 240},
+			{content: "Connection works perfectly!", isOutgoing: true, minutesAgo: 235},
+			{content: "Awesome! Encryption is end-to-end right?", isOutgoing: false, minutesAgo: 230},
+			{content: "Yes, all messages are encrypted with your public key", isOutgoing: true, minutesAgo: 225},
+			{content: "That's exactly what I needed. Thanks!", isOutgoing: false, minutesAgo: 220},
+			{content: "Anytime! Stay safe out there", isOutgoing: true, minutesAgo: 215},
+		},
+		"Casey Encrypted": {
+			{content: "Are you online?", isOutgoing: false, minutesAgo: 60},
+			{content: "Yes, just came online", isOutgoing: true, minutesAgo: 55},
+			{content: "Great! I wanted to discuss the new protocol update", isOutgoing: false, minutesAgo: 50},
+			{content: "Sure, what's the update about?", isOutgoing: true, minutesAgo: 45},
+			{content: "It includes better key rotation and improved message authentication", isOutgoing: false, minutesAgo: 40},
+			{content: "Sounds good. When can I install it?", isOutgoing: true, minutesAgo: 35},
+			{content: "It'll be available next week. I'll send you the details", isOutgoing: false, minutesAgo: 30},
+		},
+	}
+
+	if convo, exists := sampleConversations[contactName]; exists {
+		for _, msg := range convo {
+			messages = append(messages, Message{
+				ContactID:   contactID,
+				Content:     msg.content,
+				Timestamp:   now.Add(time.Duration(-msg.minutesAgo) * time.Minute),
+				IsOutgoing:  msg.isOutgoing,
+				IsDelivered: true,
+				IsRead:      true,
+			})
+		}
+	}
+
+	return messages
 }

@@ -57,7 +57,7 @@ func NewApp(chatManager *chat.Manager, onionAddr, publicKey, fingerprint string)
 
 func (a *App) Run() {
 	a.mainWindow = a.fyneApp.NewWindow("Blackout - Secure P2P Messenger")
-	a.mainWindow.Resize(fyne.NewSize(1000, 700))
+	a.mainWindow.Resize(fyne.NewSize(600, 720))
 	a.mainWindow.SetMaster()
 
 	content := a.buildUI()
