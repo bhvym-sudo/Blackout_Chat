@@ -2,6 +2,7 @@ package network
 
 import (
 	"bufio"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -194,16 +195,22 @@ func (p *Peer) EncryptChatMessage(content, messageID string) (*ProtocolMessage, 
 	return &ProtocolMessage{
 		Type:             MessageTypeChat,
 		Timestamp:        time.Now().Unix(),
-		EncryptedPayload: crypto.EncodePublicKey([32]byte(ciphertext)),
-		Nonce:            crypto.EncodePublicKey([32]byte(nonce)),
+		EncryptedPayload: base64.StdEncoding.EncodeToString(ciphertext),
+		Nonce:            base64.StdEncoding.EncodeToString(nonce),
 		MessageID:        messageID,
 	}, nil
 }
 
 func (p *Peer) DecryptChatMessage(msg *ProtocolMessage) (*ChatMessage, error) {
+	ciphertext, err := base64.StdEncoding.DecodeString(msg.EncryptedPayload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode encrypted payload: %w", err)
+	}
 
-	ciphertext := []byte(msg.EncryptedPayload)
-	nonce := []byte(msg.Nonce)
+	nonce, err := base64.StdEncoding.DecodeString(msg.Nonce)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode nonce: %w", err)
+	}
 
 	plaintext, err := crypto.DecryptMessage(ciphertext, nonce, p.SharedSecret)
 	if err != nil {
